@@ -33,11 +33,14 @@ For throughness, I will also catalog several other Juggler resources here:
 Juggler original animation output converted to animated GIF:
 https://archive.org/details/amiga-juggler
 
+Scanned AmigaWorld Volume 3 Issue 3 (May/June 1987) on Archive.org (article pp 18-24):
+https://archive.org/download/amiga-world-1987-05
+
 Ernie Wright web site:
 http://www.etwright.org/cghist/juggler.html
 http://www.etwright.org/cghist/juggler_rt.html
 
-Werner & Walter Randelshofer Juggler web pages:
+Walter Randelshofer's Juggler web pages:
 https://www.randelshofer.ch/animations/anims/eric_graham/Juggler.anim.html
 
 Juggler in Java by Meatfighter.com
