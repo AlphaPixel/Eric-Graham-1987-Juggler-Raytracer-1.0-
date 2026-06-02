@@ -1,0 +1,605 @@
+ 
+BIG=1E+10
+SMALL=.001
+DULL%=0
+BRIGHT%=1
+MIRRORED%=2
+minglint=.95
+DIM brite(2)
+numlmp%=1
+DIM lamp.pos(numlmp%,2),lamp.color(numlmp%,2)
+DIM lamp.radius(numlmp%)
+ 
+numsp%=1
+DIM sphere.pos(numsp%,2),sphere.color(numsp%,2)
+DIM sphere.radius(numsp%),sphere.type(numsp%)
+ 
+DIM position(2),lposition(2),normal(2),colour(2),refvec(2)
+ 
+numsp%=1
+numlmp%=1
+DIM horiz.color(1,2)
+DIM illum(2),skyhor(2),skyzen(2),horiz.pos(2),horiz.normal(2)
+ 
+DIM u(2),v(2),obspos(2),viewdir(2),uhat(2),vhat(2),tp(2)
+DIM lin(5)
+focal.length=50!
+px=0!
+py=0!
+nx%=320
+ny%=200
+skip%=8
+DIM zenith(2)
+zenith(0)=0!: zenith(1)=0!: zenith(2)=1!
+f1=1.5: f2=.4
+ 
+CALL setup
+ 
+REM  ----- set up ham screen
+ 
+threshhold%=4
+nallocr%=2
+DIM creg%(47),map%(2),prevpix%(2)
+map%(0)=&H20: map%(1)=&H30: map%(2)=&H10
+FOR i%=0 TO 47
+  creg%(i%)=0
+NEXT i%
+FOR i%=3 TO 5
+  creg%(i%)=15
+NEXT i%
+ 
+FOR i%=0 TO 2
+  prevpix%(i%)=0
+NEXT i%
+DIM newscreen%(15)
+ 
+FOR i=0 TO 15
+  newscreen%(i)=0
+NEXT i
+ 
+newscreen%(2)=320 'Width
+newscreen%(3)=200 'Height
+newscreen%(4)=6 'Depth
+newscreen%(6)=&H800 'HAM
+newscreen%(7)=&HF 'CUSTOMSCREEN
+ 
+DIM newwindow%(23)
+ 
+FOR i%=0 TO 23
+  newwindow%(i%)=0
+NEXT i%
+ 
+mywidth%=320: myheight%=200
+newwindow%(2)=mywidth%
+newwindow%(3)=myheight%
+newwindow%(4)=&H1 'DetailPen, BlockPen
+POKEL VARPTR(newwindow%(7)),&H1800 'BORDERLESS|ACTIVATE
+newwindow%(19)=mywidth%
+newwindow%(20)=myheight%
+newwindow%(21)=mywidth%
+newwindow%(22)=myheight%
+newwindow%(23)=&HF 'CUSTOMSCREEN
+ 
+DIM pointer%(6)
+FOR i%=0 TO 5
+  pointer%(i%)=0
+NEXT i%
+ 
+DECLARE FUNCTION OpenScreen&() LIBRARY
+DECLARE FUNCTION OpenWindow&() LIBRARY
+DECLARE FUNCTION ViewPortAddress&() LIBRARY
+ 
+myscreen&=0: mywindow&=0
+ 
+LIBRARY "graphics.library"
+LIBRARY "dos.library"
+LIBRARY "intuition.library"
+ 
+myscreen&=OpenScreen&(VARPTR(newscreen%(0)))
+IF myscreen& = 0 THEN
+  PRINT "openscreen error": GOTO cleanup
+END IF
+ 
+POKEL VARPTR(newwindow%(15)),myscreen&
+mywindow&=OpenWindow&(VARPTR(newwindow%(0)))
+IF mywindow& = 0 THEN
+  PRINT "openwindow error": GOTO cleanup
+END IF
+ 
+viewport&=ViewPortAddress&(mywindow&)
+rastport&=PEEKL(mywindow&+50)
+FOR i%=0 TO 31
+  CALL SetRGB4(viewport&,i%,0,0,0)
+NEXT i%
+ 
+CALL SetRGB4(viewport&,1,15,15,15)
+ 
+REM CALL SetPointer(mywindow&,VARPTR(pointer%(0)),1,8,0,0)
+ 
+REM  ------- now do raytracing
+ 
+si%=1+(nx%-1)\skip%
+sj%=1+(ny%-1)\skip%
+ 
+jj%=0
+FOR j%=0 TO ny%-1 STEP skip%
+  ii%=0
+  FOR i%=0 TO nx%-1 STEP skip%
+    CALL pixline(lin(),i%,j%)
+    CALL raytrace(brite(),lin())
+    CALL ham(ii%,jj%,brite())
+    ii%=ii%+1
+  NEXT i%
+  jj%=jj%+1
+NEXT j%
+ 
+REM  -------- now do cleanup
+ 
+FOR i=0 TO 10000& 'wait a few seconds
+NEXT i
+ 
+cleanup:
+IF mywindow& <> 0 THEN CALL CloseWindow(mywindow&)
+IF myscreen& <> 0 THEN CALL CloseScreen(myscreen&)
+LIBRARY CLOSE
+ 
+END
+ 
+SUB raytrace(brite(),lin()) STATIC
+SHARED BIG,numsp%,lamp.radius(),lin(),lamp.color(),position()
+SHARED colour(),horiz.color(),horiz.pos(),horiz.normal(),normal()
+SHARED sphere.pos(),sphere.color(),sphere.type(),BRIGHT%,DULL%,MIRRORED%
+ 
+loop:
+tmin=BIG
+spnear%=-1
+FOR k%=0 TO numsp%-1
+  CALL intsplin(result%,t,lin(),k%)
+  IF result% AND t < tmin THEN tmin=t: spnear%=k%
+NEXT k%
+ 
+lmpnear%=-1
+FOR k%=0 TO numlmp%-1
+  intsplin(result%,t,lin(),k%)
+  IF result% AND t < tmin THEN tmin=t: lmpnear%=k%
+NEXT k%
+ 
+IF lmpnear% <> -1 THEN
+  FOR k%=0 TO 2
+    r=lamp.radius(lmpnear%)
+    brite(k%)=lamp.color(lmpnear%,k%)/(r*r)
+  NEXT k%
+  EXIT SUB
+END IF
+ 
+CALL inthor(result%,t,lin())
+IF result% AND t < tmin THEN
+  CALL getpoint(position(),t,lin())
+  CALL gingham(k%,position())
+  CALL extract(colour(),horiz.color(),k%)
+  CALL pixbrite(brite(),horiz.pos(),horiz.normal(),colour(),-1)
+  EXIT SUB
+END IF
+ 
+IF spnear% <> -1 THEN
+  CALL getpoint(position(),tmin,lin())
+  CALL extract(colour(),sphere.color(),spnear%)
+  CALL setnorm(normal(),position(),spnear%)
+ 
+  k%=sphere.type(spnear%)
+  IF k%=BRIGHT% THEN
+    CALL glint(result%,brite(),position(),normal(),spnear%,lin())
+    IF result% THEN EXIT SUB
+    CALL pixbrite(brite(),position(),normal(),colour(),spnear%): EXIT SUB
+ 
+  ELSEIF k%=DULL% THEN
+    CALL pixbrite(brite(),position(),normal(),colour(),spnear%): EXIT SUB
+  ELSEIF k%=MIRRORED% THEN
+    CALL mirror(result%,brite(),position(),normal(),lin())
+    IF result% GOTO loop
+  END IF
+END IF
+ 
+CALL skybrite(brite(),lin())
+END SUB
+ 
+SUB extract(a(1),b(2),index%) STATIC
+FOR k%=0 TO 2
+  a(k%)=b(index%,k%)
+NEXT k%
+END SUB
+ 
+SUB skybrite(brite(1),lin(1)) STATIC
+SHARED skyhor(),skyzen()
+sin2=lin(5)*lin(5)
+sin2=sin2/(lin(1)*lin(1)+lin(3)*lin(3)+sin2)
+cos2=1!-sin2
+FOR k%=0 TO 2
+  brite(k%)=cos2*skyhor(k%)+sin2*skyzen(k%)
+NEXT k%
+END SUB
+ 
+SUB pixline(lin(1),i%,j%) STATIC
+SHARED px,py,fl,nx%,ny%,viewdir(),vhat(),uhat(),obspos(),tp()
+y=(.5*ny%-j%)*py
+x=(i%-.5*nx%)*px
+FOR k%=0 TO 2
+  tp(k%)=viewdir(k%)*fl+y*vhat(k%)+x*uhat(k%)+obspos(k%)
+NEXT k%
+CALL genline(lin(),obspos(),tp())
+END SUB
+ 
+ 
+SUB intsplin(result%,t,lin(),sp%) STATIC
+SHARED sphere.radius(),sphere.pos()
+a=0!: b=0!
+c=sphere.radius(sp%): c=-c*c
+j%=0
+FOR k%=0 TO 2
+  p=lin(j%)-sphere.pos(sp%,k%): j%=j%+1
+  q=lin(j%): j%=j%+1
+  a=q*q+a
+  tt=q*p
+  b=tt+tt+b
+  c=p*p+c
+NEXT k%
+d=b*b-4!*a*c
+IF d <= 0 THEN result%=0: EXIT SUB
+d=SQR(d)
+t=-(b+d)/(a+a)
+IF (t<SMALL) THEN t=(d-b)/(a+a)
+result%=t>SMALL
+END SUB
+ 
+SUB qintsplin(result%,lin(),sp%) STATIC
+SHARED sphere.radius(),sphere.pos()
+a=0!: b=0!
+c=sphere.radius(sp%): c=-c*c
+j%=0
+FOR k%=0 TO 2
+  p=lin(j%)-sphere.pos(sp%,k%): j%=j%+1
+  q=lin(j%): j%=j%+1
+  a=a+q*q
+  b=b+2!*p*q
+  c=c+p*p
+NEXT k%
+d=b*b-4!*a*c
+result%= d > 0!
+END SUB
+ 
+SUB inthor(result%,t,lin()) STATIC
+IF lin(5) = 0! THEN EXIT SUB
+t=-lin(4)/lin(5)
+result%= t > SMALL
+END SUB
+ 
+SUB genline(l(1),a(1),b(1)) STATIC
+j%=0
+FOR k%=0 TO 2
+  l(j%)=a(k%): j%=j%+1: l(j%)=b(k%)-a(k%): j%=j%+1
+NEXT k%
+END SUB
+ 
+SUB dot(result,a(1),b(1)) STATIC
+ result=a(0)*b(0)+a(1)*b(1)+a(2)*b(2)
+END SUB
+ 
+SUB getpoint(position(2),t,lin()) STATIC
+j%=0
+FOR k%=0 TO 2
+  a=lin(j%): j%=j%+1
+  position(k%)=a+lin(j%)*t: j%=j%+1
+NEXT k%
+END SUB
+ 
+SUB glint(result%,brite(1),position(1),normal(1),spi%,incident(1)) STATIC
+SHARED minglint,numlmp%,numsp%,lamp.pos(),lposition(),lin(),refvec()
+firstlite%=1
+FOR l%=0 TO numlmp%-1
+  extract(lposition(),lamp.pos(),l%)
+  cosi=0
+  FOR k%=0 TO 2
+    lp(k%)=lamp.pos(l%,k%)-position(k%)
+    cosi=cosi+lp(k%)*normal(k%)
+  NEXT k%
+  IF cosi <= 0! GOTO continue
+  genline(lin(),position(),lposition())
+  FOR k%=0 TO numsp%-1
+    IF k% <> spi% THEN
+      intsplin(result%,t,lin(),k%)
+      IF result% GOTO continue
+    END IF
+  NEXT k%
+  IF firstlite% THEN
+    incvec(0)=incident(1)
+    incvec(1)=incident(3)
+    incvec(2)=incident(5)
+    CALL reflect(refvec(),normal(),incvec())
+    CALL dot(ref2,refvec(),refvec())
+    firstlite%=0
+  END IF
+  CALL dot(r,lp(),lp())
+  CALL dot(t,lp(),refvec())
+  CALL dot(lp2,lp(),lp())
+  t=t*t/(lp2*ref2)
+  IF t > minglint THEN
+    FOR k%=0 TO 2
+      brite(k%)=1!
+    NEXT k%
+    result%=1: EXIT SUB
+  END IF
+  continue:
+NEXT l%
+result%=0
+END SUB
+ 
+SUB mirror(result%,brite(1),position(1),normal(1),lin(1)) STATIC
+SHARED refvec()
+incvec(0)=lin(1)
+incvec(1)=lin(3)
+incvec(2)=lin(5)
+CALL dot(t,normal(),incvec())
+IF t >= 0 THEN
+  FOR k%=0 TO 2
+    brite(k%)=0!
+  NEXT k%
+  result%=0
+  EXIT SUB
+END IF
+CALL reflect(refvec(),normal(),incvec())
+lin(0)=position(0)
+lin(2)=position(1)
+lin(4)=position(2)
+lin(1)=refvec(0)
+lin(3)=refvec(1)
+lin(5)=refvec(2)
+result%=1
+END SUB
+ 
+SUB pixbrite(brite(1),position(1),normal(1),colour(1),spi%) STATIC
+SHARED f1,f2,zenith(),illum(),colour(),lposition(),lamp.pos(),lamp.color()
+SHARED numlmp%,lin()
+CALL dot(diffuse,zenith(),normal())
+diffuse=(diffuse+f1)*f2
+FOR k%=0 TO 2
+  brite(k%)=diffuse*illum(k%)*colour(k%)
+NEXT k%
+FOR l%=0 TO numlmp%-1
+  CALL extract(lposition(),lamp.pos(),l%)
+  FOR k%=0 TO 2
+    lp(k%)=lposition(k%)-position(k%)
+  NEXT k%
+  CALL dot(cosi,lp(),normal())
+  IF cosi <= 0! GOTO continue2
+  CALL genline(lin(),position(),lposition())
+  FOR k%=0 TO numsp%-1
+    IF k% <> spi% THEN
+      CALL intsplin(result%,t,lin(),k%)
+      IF result% GOTO continue2
+    END IF
+  NEXT k%
+  CALL dot(r,lp(),lp())
+  r=SQR(r)
+  cosi=cosi/(r*r*r)
+  FOR k%=0 TO 2
+    brite(k%)=brite(k%)+cosi*colour(k%)*lamp.color(l%,k%)
+  NEXT k%
+  continue2:
+NEXT l%
+END SUB
+ 
+SUB setnorm(nor(1),position(1),s%) STATIC
+SHARED sphere.pos(),sphere.radius()
+FOR k%=0 TO 2
+  nor(k%)=position(k%)-sphere.pos(s%,k%)
+NEXT k%
+a=1!/sphere.radius(s%)
+FOR k%=0 TO 2
+  nor(k%)=nor(k%)*a
+NEXT k%
+END SUB
+ 
+SUB gingham(result%,position()) STATIC
+kx%=0: ky%=0
+x=position(0): y=position(1)
+IF x < 0 THEN x=-x: kx%=kx%+1
+IF y < 0 THEN y=-y: ky%=ky%+1
+result%=(((INT(x))+kx%)\3+((INT(y))+ky%)\3)MOD 2
+END SUB
+ 
+ 
+ 
+ 
+SUB reflect(y(1),n(1),x(1)) STATIC
+SHARED u(),v()
+CALL vecprod(u(),x(),n())
+IF u(0)=0! AND u(1)=0! AND u(2)=0! THEN
+  y(0)=-x(0)
+  y(1)=-x(1)
+  y(2)=-x(2)
+  EXIT SUB
+END IF
+ 
+ CALL vecprod(v(),u(),n())
+ CALL dot(vv,v(),v())
+ CALL dot(xv,x(),v())/vv
+ CALL dot(xn,x(),n())
+ 
+FOR k%=0 TO 2
+ y(k%)=xv*v(k%)/(xn*n(k%))
+NEXT k%
+END SUB
+ 
+SUB vecprod(a(),b(),c()) STATIC
+a(0)=b(1)*c(2)-b(2)*c(1)
+a(1)=b(2)*c(0)-b(0)*c(2)
+a(2)=b(0)*c(1)-b(1)*c(0)
+END SUB
+ 
+SUB setup STATIC
+SHARED skip%,nx%,ny%,px,py,focal.length,lamp.radius(),fl
+SHARED obspos(),viewdir(),uhat(),vhat(),sphere.pos(),sphere.radius()
+SHARED sphere.type(),sphere.color(),numlmp%,lamp.pos(),lamp.radius()
+SHARED lamp.color(),horiz.normal(),horiz.color(),illum(),skyzen()
+SHARED skyhor(),numsp%,numlmp%,BIG
+degtorad=.0174533#
+skip%=16
+obspos(0)=-10!
+obspos(1)=0!
+obspos(2)=4!
+nx%=320: ny%=200
+px=1!/nx%: py=.75/ny%
+alt=-10!: az=0!
+focal.length=30
+fl=.028*focal.length
+alt=alt*degtorad
+az=az*degtorad
+viewdir(0)=COS(az)*COS(alt)
+viewdir(1)=SIN(az)*COS(alt)
+viewdir(2)=SIN(alt)
+uhat(0)=SIN(az)
+uhat(1)=-COS(az)
+uhat(2)=0!
+vhat(0)=-COS(az)*SIN(alt)
+vhat(1)=-SIN(az)*SIN(alt)
+vhat(2)=COS(alt)
+sphere.pos(0,0)=0!
+sphere.pos(0,1)=0!
+sphere.pos(0,2)=2!
+sphere.radius(0)=3!
+sphere.type(0)=DULL%
+sphere.color(0,0)=1!
+sphere.color(0,1)=.7
+sphere.color(0,2)=.7
+numlmp%=1
+lamp.pos(0,0)=-100
+lamp.pos(0,1)=-100
+lamp.pos(0,2)=100
+lamp.radius(0)=10!
+lamp.color(0,0)=1!
+lamp.color(0,1)=1!
+lamp.color(0,2)=1!
+horiz.normal(0)=0!
+horiz.normal(1)=0!
+horiz.normal(2)=1!
+horiz.color(0,0)=1!
+horiz.color(0,1)=.1
+horiz.color(0,2)=.2
+horiz.color(1,0)=.1
+horiz.color(1,1)=1!
+horiz.color(1,2)=.2
+illum(0)=.3
+illum(1)=.3
+illum(2)=.3
+skyzen(0)=.1
+skyzen(1)=.1
+skyzen(2)=1!
+skyhor(0)=.2
+skyhor(1)=.2
+skyhor(2)=.4
+lampfac=BIG
+FOR i%=0 TO numsp%-1
+  FOR j%=0 TO numlmp%-1
+    FOR k%=0 TO 2
+      tp(k%)=sphere.pos(i%,k%)-lamp.pos(j%,k%)
+    NEXT k%
+    CALL dot(r,tp(),tp())
+    r=SQR(r)
+    r=r-sphere.radius(i%)
+    FOR k%=0 TO 2
+      t=sphere.color(i%,k%)*lamp.color(j%,k%)/(r*r)
+      IF t=0! GOTO continue3
+      t=(1!-sphere.color(i%,k%)*illum(k%))/t
+      IF t <= 0 GOTO continue3
+      IF t<lampfac THEN lampfac=t
+    NEXT k%
+    continue3:
+  NEXT j%
+NEXT i%
+FOR j%=0 TO numlmp%-1
+  FOR k%=0 TO 2
+    lamp.color(j%,k%)=lamp.color(j%,k%)*lampfac
+  NEXT k%
+NEXT j%
+END SUB
+ 
+SUB ham(i%,j%,brite()) STATIC
+FOR k%=0 TO 2
+  pix%(k%)=16!*brite(k%)
+  IF pix%(k%) < 0 THEN  pix%(k%)=0
+  IF pix%(k%) > 15 THEN pix%(k%)=15
+NEXT k%
+CALL ham2(i%,j%,pix%())
+END SUB
+ 
+ 
+ 
+ 
+ 
+SUB ham2(i%,j%,pix%(1)) STATIC
+SHARED creg%(),rastport&,map%(),prevpix%()
+ 
+IF i% <> 0 THEN
+  CALL coldist(dif%,pix%())
+  IF dif% <> 0 THEN
+    CALL nearestp(pen%,pix%(),dif2%)
+    IF dif2% < dif% GOTO reg
+  END IF
+  id%=0: maxdif%=0
+  FOR k%=0 TO 2
+    dif%=pix%(k%)-prevpix%(k%)
+    IF dif% < 0 THEN dif%=-dif%
+    IF dif% > maxdif% THEN maxdif%=dif%: id%=k%
+  NEXT k%
+  pen%=map%(id%)+pix%(id%): prevpix%(id%)=pix%(id%)
+ELSE
+  CALL nearestp(pen%,pix%(),dif2%)
+  reg:
+  FOR k%=0 TO 2
+    prevpix%(k%)=creg%(pen%*3+k%)
+  NEXT k%
+END IF
+CALL SetAPen(rastport&,pen%)
+CALL WritePixel(rastport&,i%,j%)
+END SUB
+ 
+SUB nearestp(nearest%,c%(1),dist%) STATIC
+REM  RETURN the pen nearest TO the COLOR c.  Allocate it maybe.
+SHARED nallocr%,creg%(),threshhold%,viewport&
+dist%=32000
+FOR i%=0 TO nallocr%-1
+  CALL coldist2(d%,c%(),creg%(),3*i%)
+  IF d% < dist% THEN dist%=d%: nearest%=i%
+NEXT i%
+IF dist% > threshhold% AND nallocr% < 16 THEN
+  FOR i%=0 TO 2
+    creg%(3*nallocr%+i%)=c%(i%)
+  NEXT i%
+  CALL SetRGB4(viewport&,nallocr%, c%(0),c%(1),c%(2))
+  nearest%=nallocr%: nallocr%=nallocr%+1
+  dist%=0
+END IF
+END SUB
+ 
+ 
+SUB coldist(dist%,a%(1)) STATIC
+SHARED prevpix%()
+r%=0: m%=0
+FOR k%=0 TO 2
+  d%=a%(k%)-prevpix%(k%)
+  IF d% < 0 THEN d%=-d%
+  r%=r%+d%
+  IF d% > m% THEN m%=d%
+NEXT k%
+dist%=r%-m%
+END SUB
+ 
+ 
+SUB coldist2(r%,a%(1),b%(1),i%) STATIC
+r%=0
+FOR k%=0 TO 2
+  d%=a%(k%)-b%(k%+i%)
+  IF d% < 0 THEN d%=-d%
+  r%=r%+d%
+NEXT k%
+END SUB
