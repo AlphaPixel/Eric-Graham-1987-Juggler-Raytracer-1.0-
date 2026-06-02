@@ -1,5 +1,7 @@
 # Eric-Graham-1987-Juggler-Raytracer-1.0
 
+![Original Juggler](./media/Juggler.png "Juggler")
+
 ## Overview
 
 Eric Graham's original 1987 Juggler Raytracer 1.0 source code and related data
@@ -35,6 +37,9 @@ Ernie Wright web site:
 http://www.etwright.org/cghist/juggler.html
 http://www.etwright.org/cghist/juggler_rt.html
 
+Werner & Walter Randelshofer Juggler web pages:
+https://www.randelshofer.ch/animations/anims/eric_graham/Juggler.anim.html
+
 Juggler in Java by Meatfighter.com
 https://meatfighter.com/juggler/
 
@@ -53,6 +58,11 @@ https://github.com/unfastener/juggler-in-rust
 ## Manifest of Files included
 
 Raytracer_1987_Graham_Source_Code.adf.7z : Original distribution of ADF file (7z compressed) from archive.org
+
+media/ : collected media of the Juggler output. Contents follow:
+- `Juggler.png` (24,296 bytes): One of the HAM frames from Juggler, converted to 24-bit, upscaled to 640x400 and saved as PNG.
+- `juggler.avi` (328,538 bytes): Ernie Wright's custom extraction and conversion of the whole Juggler animation to Windows AVI format. 320x200. Difficult for many modern media playback tools to decode.
+- `Juggler.mp4` (648,513 bytes): Ernie Wright's AVI format upscaled to 1462x1080 and transcoded to MP4.
 
 Raytracer_1987_Graham_Source_Code/ : folder containing all files found in the root of the extracted ADF. Contents follow:
 - `.info` (87 bytes): Workbench disk metadata
