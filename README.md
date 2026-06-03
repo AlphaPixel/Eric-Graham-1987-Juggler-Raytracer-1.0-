@@ -37,6 +37,9 @@ Ernie Wright web site:
 http://www.etwright.org/cghist/juggler.html
 http://www.etwright.org/cghist/juggler_rt.html
 
+The actual Juggler animation and player on Fish Disk #97:
+https://www.nic.funet.fi/pub/amiga/fish/001-100/ff097/
+
 Werner & Walter Randelshofer Juggler web pages:
 https://www.randelshofer.ch/animations/anims/eric_graham/Juggler.anim.html
 
