@@ -1,10 +1,27 @@
 #include "exec/exec.h"
 #include "intuition/intuition.h"
 
+#ifdef JUGGLER_USE_SDL2
+#define SDL_MAIN_HANDLED
+#include <SDL.h>
+#else
 #include <SDL3/SDL.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef JUGGLER_USE_SDL2
+#define JUGGLER_SDL_QUIT SDL_QUIT
+#define JUGGLER_SDL_KEYDOWN SDL_KEYDOWN
+#define JUGGLER_SDL_KEY(event) ((event).key.keysym.sym)
+typedef SDL_Keycode JugglerKeycode;
+#else
+#define JUGGLER_SDL_QUIT SDL_EVENT_QUIT
+#define JUGGLER_SDL_KEYDOWN SDL_EVENT_KEY_DOWN
+#define JUGGLER_SDL_KEY(event) ((event).key.key)
+typedef SDL_Keycode JugglerKeycode;
+#endif
 
 struct EmuState {
     SDL_Window *window;
@@ -27,6 +44,10 @@ static struct IntuitionBase intuitionbase;
 static struct DosBase dosbase;
 static struct RastPort rastport;
 
+static int init_video(void);
+static SDL_Renderer *create_renderer(SDL_Window *window);
+static void render_texture(SDL_Renderer *renderer,SDL_Texture *texture,SDL_FRect *dst);
+
 static unsigned char dac4(int v)
 {
     if (v < 0) v=0;
@@ -47,12 +68,12 @@ static void present(void)
     dst.y=0.0f;
     dst.w=(float)emu.display_width;
     dst.h=(float)emu.display_height;
-    SDL_RenderTexture(emu.renderer,emu.texture,NULL,&dst);
+    render_texture(emu.renderer,emu.texture,&dst);
     SDL_RenderPresent(emu.renderer);
     emu.dirty=0;
 }
 
-static int closes_preview(SDL_Keycode key)
+static int closes_preview(JugglerKeycode key)
 {
     if (key >= 0x20 && key <= 0x7e) return 1;
     return key == SDLK_ESCAPE || key == SDLK_RETURN || key == SDLK_KP_ENTER;
@@ -62,14 +83,41 @@ static void pump_events(int *done)
 {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_EVENT_QUIT) {
+        if (event.type == JUGGLER_SDL_QUIT) {
             *done=1;
         }
-        if (event.type == SDL_EVENT_KEY_DOWN &&
-            closes_preview(event.key.key)) {
+        if (event.type == JUGGLER_SDL_KEYDOWN &&
+            closes_preview(JUGGLER_SDL_KEY(event))) {
             *done=1;
         }
     }
+}
+
+static int init_video(void)
+{
+#ifdef JUGGLER_USE_SDL2
+    return SDL_Init(SDL_INIT_VIDEO) == 0;
+#else
+    return SDL_Init(SDL_INIT_VIDEO);
+#endif
+}
+
+static SDL_Renderer *create_renderer(SDL_Window *window)
+{
+#ifdef JUGGLER_USE_SDL2
+    return SDL_CreateRenderer(window,-1,0);
+#else
+    return SDL_CreateRenderer(window,NULL);
+#endif
+}
+
+static void render_texture(SDL_Renderer *renderer,SDL_Texture *texture,SDL_FRect *dst)
+{
+#ifdef JUGGLER_USE_SDL2
+    SDL_RenderCopyF(renderer,texture,NULL,dst);
+#else
+    SDL_RenderTexture(renderer,texture,NULL,dst);
+#endif
 }
 
 static void release_window_resources(void)
@@ -118,7 +166,7 @@ struct Screen *OpenScreen(struct NewScreen *newscreen)
     struct Screen *screen;
 
     if (!emu.initialized) {
-        if (!SDL_Init(SDL_INIT_VIDEO)) {
+        if (!init_video()) {
             fprintf(stderr,"SDL_Init failed: %s\n",SDL_GetError());
             return NULL;
         }
@@ -149,13 +197,17 @@ struct Window *OpenWindow(struct NewWindow *newwindow)
     emu.display_width=emu.width*scale;
     emu.display_height=(emu.height*scale*6+2)/5;
 
+#ifdef JUGGLER_USE_SDL2
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,"0");
+#endif
+
     emu.window=SDL_CreateWindow("raytracer",emu.display_width,emu.display_height,0);
     if (!emu.window) {
         fprintf(stderr,"SDL_CreateWindow failed: %s\n",SDL_GetError());
         return NULL;
     }
 
-    emu.renderer=SDL_CreateRenderer(emu.window,NULL);
+    emu.renderer=create_renderer(emu.window);
     if (!emu.renderer) {
         fprintf(stderr,"SDL_CreateRenderer failed: %s\n",SDL_GetError());
         release_window_resources();

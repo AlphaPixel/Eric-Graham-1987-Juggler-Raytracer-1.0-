@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
 
-option(JUGGLER_USE_VCPKG "Use vcpkg manifest mode to provide SDL3" ON)
+option(JUGGLER_USE_VCPKG "Use vcpkg manifest mode to provide SDL" ON)
+set(JUGGLER_SDL_VERSION "3" CACHE STRING "SDL major version to use: 2 or 3")
+set_property(CACHE JUGGLER_SDL_VERSION PROPERTY STRINGS 2 3)
+
+if (NOT JUGGLER_SDL_VERSION STREQUAL "2" AND NOT JUGGLER_SDL_VERSION STREQUAL "3")
+    message(FATAL_ERROR "JUGGLER_SDL_VERSION must be 2 or 3.")
+endif()
 
 if (JUGGLER_USE_VCPKG AND NOT CMAKE_TOOLCHAIN_FILE)
     set(_vcpkg_roots)
@@ -34,19 +40,31 @@ endif()
 if (JUGGLER_USE_VCPKG)
     set(VCPKG_MANIFEST_MODE ON CACHE BOOL "Use vcpkg manifest mode")
     set(VCPKG_MANIFEST_INSTALL ON CACHE BOOL "Install vcpkg manifest dependencies")
+    set(VCPKG_MANIFEST_NO_DEFAULT_FEATURES
+        ON
+        CACHE BOOL "Disable vcpkg manifest default features"
+    )
+    set(VCPKG_MANIFEST_FEATURES
+        "sdl${JUGGLER_SDL_VERSION}"
+        CACHE STRING "vcpkg manifest features"
+    )
 endif()
 
 project(juggler_raytrace LANGUAGES CXX)
 
 if (JUGGLER_USE_VCPKG AND NOT CMAKE_TOOLCHAIN_FILE)
     message(FATAL_ERROR
-        "SDL3 is provided through vcpkg manifest mode. Set VCPKG_ROOT or "
+        "SDL${JUGGLER_SDL_VERSION} is provided through vcpkg manifest mode. Set VCPKG_ROOT or "
         "configure with -DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake. "
-        "To use an existing SDL3 installation instead, configure with -DJUGGLER_USE_VCPKG=OFF."
+        "To use an existing SDL installation instead, configure with -DJUGGLER_USE_VCPKG=OFF."
     )
 endif()
 
-find_package(SDL3 CONFIG REQUIRED)
+if (JUGGLER_SDL_VERSION STREQUAL "2")
+    find_package(SDL2 CONFIG REQUIRED)
+else()
+    find_package(SDL3 CONFIG REQUIRED)
+endif()
 
 add_executable(raytrace
     src/rt1.c
@@ -65,7 +83,12 @@ set_source_files_properties(
 
 target_compile_features(raytrace PRIVATE cxx_std_11)
 target_include_directories(raytrace PRIVATE src)
-target_link_libraries(raytrace PRIVATE SDL3::SDL3)
+if (JUGGLER_SDL_VERSION STREQUAL "2")
+    target_compile_definitions(raytrace PRIVATE JUGGLER_USE_SDL2)
+    target_link_libraries(raytrace PRIVATE SDL2::SDL2)
+else()
+    target_link_libraries(raytrace PRIVATE SDL3::SDL3)
+endif()
 
 if (UNIX)
     target_link_libraries(raytrace PRIVATE m)

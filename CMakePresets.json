@@ -10,6 +10,9 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "JUGGLER_USE_VCPKG": "ON",
+        "JUGGLER_SDL_VERSION": "3",
+        "VCPKG_MANIFEST_NO_DEFAULT_FEATURES": "ON",
+        "VCPKG_MANIFEST_FEATURES": "sdl3",
         "VCPKG_MANIFEST_MODE": "ON",
         "VCPKG_MANIFEST_INSTALL": "ON"
       },
@@ -28,6 +31,9 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "JUGGLER_USE_VCPKG": "ON",
+        "JUGGLER_SDL_VERSION": "3",
+        "VCPKG_MANIFEST_NO_DEFAULT_FEATURES": "ON",
+        "VCPKG_MANIFEST_FEATURES": "sdl3",
         "VCPKG_MANIFEST_MODE": "ON",
         "VCPKG_MANIFEST_INSTALL": "ON"
       },

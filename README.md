@@ -100,7 +100,7 @@ Raytracer_1987_Graham_Source_Code/ : folder containing all files found in the ro
 
 The modernization work needed a way to run the original 1987 Amiga raytracer on current Windows, Linux, and macOS systems while keeping the source relationship to the published code clear. The main missing secret sauce is the Amiga OS and chipset display environment used by `rt3.c`.
 
-The chosen approach was to minimally update the renderer source and leave the Amiga-facing display calls in place, then provide a small SDL3 compatibility layer that implements only the Amiga functions and types this program uses.
+The chosen approach was to minimally update the renderer source and leave the Amiga-facing display calls in place, then provide a small SDL compatibility layer that implements only the Amiga functions and types this program uses.
 
 ### Approach
 
@@ -108,9 +108,16 @@ The port adds local Amiga-style headers under `src/exec/` and `src/intuition/` s
 
 The display implementation lives in `src/emulate-amiga.c`. It provides functions such as `OpenLibrary()`, `OpenScreen()`, `OpenWindow()`, `CloseWindow()`, `ViewPortAddress()`, `SetRGB4()`, `SetAPen()`, and `WritePixel()`. That lets `rt3.c` continue to call Amiga-named functions instead of being rewritten around SDL directly.
 
-SDL3 is used only behind that compatibility layer. CMake builds the original `.c` files as C++ source and links SDL3 through vcpkg manifest mode.
+SDL is used only behind that compatibility layer. CMake builds the original `.c` files as C++ source and links SDL through vcpkg manifest mode by default.
 
-By default, CMake uses vcpkg manifest mode to acquire SDL3. To use an SDL3 package already installed on the system, configure with `-DJUGGLER_USE_VCPKG=OFF` and ensure SDL3 is discoverable through the usual CMake package paths.
+By default, CMake uses vcpkg manifest mode to acquire SDL3. To build against SDL2 instead, configure with `-DJUGGLER_SDL_VERSION=2`. The vcpkg manifest uses features, and CMake disables default manifest features, so only the selected SDL version is installed.
+
+To use an SDL package already installed on the system, configure with `-DJUGGLER_USE_VCPKG=OFF` and ensure the selected SDL version is discoverable through the usual CMake package paths. For example:
+
+```sh
+cmake -S . -B build -DJUGGLER_USE_VCPKG=OFF -DJUGGLER_SDL_VERSION=3
+cmake -S . -B build-sdl2 -DJUGGLER_USE_VCPKG=OFF -DJUGGLER_SDL_VERSION=2
+```
 
 ### Necessary Code Changes
 
@@ -144,7 +151,7 @@ The preview remains open at the end of the render until the user closes it or pr
 
 ### Result
 
-The result is a small SDL-backed Amiga display shim rather than a rewrite of the display code. The original renderer still computes pixels, `rt3.c` still chooses HAM pens and writes pixels through Amiga-style calls, and the compatibility layer translates those calls into a modern SDL3 window.
+The result is a small SDL-backed Amiga display shim rather than a rewrite of the display code. The original renderer still computes pixels, `rt3.c` still chooses HAM pens and writes pixels through Amiga-style calls, and the compatibility layer translates those calls into a modern SDL window.
 
 This keeps the modernized source close to the original published files while making the program buildable and visible on current desktop systems.
 
