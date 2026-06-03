@@ -35,6 +35,10 @@
 *.i*86
 *.x86_64
 *.hex
+out/
+build/
+vcpkg_installed/
+CMakeUserPresets.json
 
 # Debug files
 *.dSYM/
@@ -53,3 +57,6 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# IDE/toolchain stuff
+.vs
