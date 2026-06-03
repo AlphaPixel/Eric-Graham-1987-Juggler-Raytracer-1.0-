@@ -36,12 +36,21 @@ https://archive.org/details/amiga-juggler
 Scanned AmigaWorld Volume 3 Issue 3 (May/June 1987) on Archive.org (article pp 18-24):
 https://archive.org/download/amiga-world-1987-05
 
+The news about the rediscovery of the RT disk:
+https://commodorefree.com/magazine/vol8/issue79.html#NEWS-1.1
+
 Ernie Wright web site:
 http://www.etwright.org/cghist/juggler.html
 http://www.etwright.org/cghist/juggler_rt.html
 
 Walter Randelshofer's Juggler web pages:
 https://www.randelshofer.ch/animations/anims/eric_graham/Juggler.anim.html
+
+English Amiga Board post about the recovery of the floppy and Alain Thellier getting it working again:
+https://eab.abime.net/showthread.php?t=51911&page=1
+
+Alain Thellier's recompiled rt with built-in robot, ele and dragon scenes (source included):
+http://thellier.free.fr/rt-gcc.zip
 
 Juggler in Java by Meatfighter.com
 https://meatfighter.com/juggler/
